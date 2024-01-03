@@ -1,51 +1,42 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const dialogflow = require("dialogflow");
-const projectId = "test-chat-bot-app-394503";
-const credentials = require("./test-chat-bot-app-394503-ed0b55fa1a67.json");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
-console.log(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-
+// Dialogflow 설정 (이 부분은 필요에 따라 유지하거나 수정)
+const dialogflow = require("dialogflow");
+const projectId = "test-chat-bot-app-394503";
 const sessionClient = new dialogflow.SessionsClient({
   projectId: projectId,
   keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
 });
 
+// MongoDB 연결
+const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/chatLogs";
+mongoose
+  .connect(mongoURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("MongoDB 연결 성공"))
+  .catch((err) => console.error("MongoDB 연결 실패:", err));
+
+// Express 애플리케이션 초기화
 const app = express();
 const port = 3001; // 포트 번호를 원하는 대로 설정하세요.
 
+// 미들웨어 사용
 app.use(bodyParser.json());
 app.use(cors());
 
-// 사용자 입력 메시지를 Dialogflow로 보내고 응답을 받아옴
-async function sendMessageToDialogflow(userMessage) {
-  const sessionPath = sessionClient.sessionPath(projectId, "unique-session-id");
-  const request = {
-    session: sessionPath,
-    queryInput: {
-      text: {
-        text: userMessage,
-        languageCode: "en-US", // 사용하는 언어 코드
-      },
-    },
-  };
+// 새로운 라우터 가져오기
+const chatRoutes = require("./src/routes/chatRoutes");
 
-  const [response] = await sessionClient.detectIntent(request);
-  return response.queryResult.fulfillmentText; // Dialogflow에서 받은 응답
-}
+// 라우터를 Express 애플리케이션에 사용
+app.use(chatRoutes);
 
-// /api/chat 엔드포인트
-app.post("/api/chat", async (req, res) => {
-  const userMessage = req.body.message; // 클라이언트에서 보낸 사용자 메시지
-  // 여기에서 챗봇 응답을 처리하고, 챗봇 응답을 생성합니다.
-  const botResponse = await sendMessageToDialogflow(userMessage);
-
-  // 클라이언트로 응답을 보냅니다.
-  res.json({ botResponse });
-});
-
+// 서버 시작
 app.listen(port, () => {
   console.log(`서버가 포트 ${port}에서 실행 중입니다.`);
 });
