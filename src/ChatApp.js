@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import "./ChatApp.css";
 
+// 사용자 및 봇 이미지의 경로를 정확하게 지정해주세요.
+const userImage = "/userimage.jpg";
+const botImage = "/botimage.png";
+
 function ChatApp(props) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
@@ -13,8 +17,35 @@ function ChatApp(props) {
     }
   }, [messages]);
 
+  // 이전 대화 기록을 가져오기 위한 함수
+  const fetchPreviousMessages = async () => {
+    try {
+      const response = await fetch("http://localhost:3001/api/chat-history");
+      if (!response.ok) {
+        throw new Error("이전 대화 기록을 불러오는데 실패했습니다.");
+      }
+      const data = await response.json();
+      setMessages(data.messages);
+    } catch (error) {
+      console.error("이전 대화 기록을 가져오는데 오류 발생:", error);
+    }
+  };
+
+  useEffect(() => {
+    // 컴포넌트가 마운트될 때 이전 대화 기록을 가져옴
+    fetchPreviousMessages();
+
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+  }, []);
+
   const handleSendMessage = async (message) => {
-    const newUserMessage = { text: message, type: "user", time: new Date() };
+    const newUserMessage = {
+      text: message,
+      type: "user",
+      time: new Date(),
+    };
     addMessage(newUserMessage);
 
     try {
@@ -78,7 +109,17 @@ function ChatApp(props) {
         <div className="message-list" ref={messageListRef}>
           {reversedMessages.map((message, index) => (
             <div key={index} className={`message ${message.type}`}>
-              {message.text}
+              {message.type === "user" ? (
+                <div className="user-message">
+                  <img src={userImage} alt="User" className="user-image" />
+                  <div className="message-text">{message.text}</div>
+                </div>
+              ) : (
+                <div className="bot-message">
+                  <img src={botImage} alt="Bot" className="bot-image" />
+                  <div className="message-text">{message.text}</div>
+                </div>
+              )}
             </div>
           ))}
         </div>
