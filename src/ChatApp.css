@@ -26,11 +26,12 @@
 }
 
 .message {
-  margin-bottom: 5px;
-  padding: 5px;
-  border-radius: 5px;
+  margin-bottom: 10px; /* 간격 조정 */
+  padding: 10px;
+  border-radius: 10px; /* 둥근 모서리 */
   background-color: #f0f0f0;
   width: 50%;
+  position: relative;
 }
 
 .user {
@@ -38,6 +39,36 @@
   color: #fff;
   align-self: flex-end;
   width: 50%;
+  position: relative;
+}
+
+.message::before {
+  content: ""; /* 가상 요소 생성 */
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px; /* 삼각형 크기 조정 */
+}
+
+.message.user::before {
+  border-color: transparent transparent transparent #4caf50; /* 사용자 메시지의 삼각형 스타일 설정 */
+  right: -20px; /* 오른쪽으로 이동해서 삼각형 위치 조정 */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.message.bot::before {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px;
+  border-color: transparent #f0f0f0 transparent transparent; /* 삼각형을 왼쪽으로 반전 */
+  left: -20px; /* 삼각형의 위치를 왼쪽으로 조정 */
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .input-box {
@@ -69,4 +100,14 @@
 
 .input-box button:hover {
   background-color: #45a049;
+}
+
+.user-image {
+  width: 50px; /* 원하는 너비로 설정하세요 */
+  height: 50px; /* 원하는 높이로 설정하세요 */
+}
+
+.bot-image {
+  width: 50px; /* 원하는 너비로 설정하세요 */
+  height: 50px; /* 원하는 높이로 설정하세요 */
 }
