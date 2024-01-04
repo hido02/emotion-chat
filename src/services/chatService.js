@@ -5,13 +5,11 @@ const projectId = "test-chat-bot-app-394503"; // Dialogflow 프로젝트 ID
 
 // MongoDB에 메시지 저장
 async function saveMessage(userMessage) {
-  console.log(userMessage);
   const text = userMessage.text || "";
   const time = userMessage.time || new Date();
   const type = userMessage.type || "user";
 
   const message = new Message({ text, time, type });
-  console.log(message);
   try {
     await message.save();
   } catch (error) {

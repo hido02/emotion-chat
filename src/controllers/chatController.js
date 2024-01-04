@@ -1,5 +1,6 @@
 const chatService = require("../services/chatService");
 const Message = require("../models/messageModel");
+const axios = require("axios");
 
 async function postChat(req, res) {
   try {
@@ -48,4 +49,20 @@ async function getChatHistory(req, res) {
   }
 }
 
-module.exports = { postChat, getChatHistory };
+async function searchPlaces(req, res) {
+  const { location, radius, type } = req.body;
+  console.log(req.body);
+  const apiKey = "AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8"; // 여기에 Google Places API 키를 넣습니다.
+  const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location}&radius=${radius}&type=${type}&key=${apiKey}`;
+
+  try {
+    const response = await axios.get(url);
+    console.log(response);
+    res.json(response.data);
+  } catch (error) {
+    console.error("장소 검색 오류:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = { postChat, getChatHistory, searchPlaces };

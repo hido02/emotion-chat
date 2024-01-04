@@ -17,6 +17,28 @@ function ChatApp(props) {
     }
   }, [messages]);
 
+  const searchPlaces = async (location, radius, type) => {
+    try {
+      const response = await fetch("http://localhost:3001/api/search-places", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ location, radius, type }),
+      });
+
+      if (!response.ok) {
+        throw new Error("장소 검색에 실패했습니다.");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("장소 검색 오류:", error);
+      return null;
+    }
+  };
+
   // 이전 대화 기록을 가져오기 위한 함수
   const fetchPreviousMessages = async () => {
     try {
@@ -39,6 +61,12 @@ function ChatApp(props) {
       messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
     }
   }, []);
+
+  const typeMapping = {
+    공원: "park",
+    카페: "cafe",
+    // 기타 장소 유형에 대한 매핑
+  };
 
   const handleSendMessage = async (message) => {
     const newUserMessage = {
@@ -72,8 +100,84 @@ function ChatApp(props) {
       console.error("오류 발생:", error);
     }
 
+    if (message.includes("추천해줘")) {
+      console.log("여기까지");
+      const pattern = /(.+)에서 (.+)미터 내의 (.+) 추천해줘/;
+      const matches = message.match(pattern);
+      let location, locationName, radius, type, typeName;
+
+      if (matches) {
+        locationName = matches[1]; // 첫 번째 ~
+        radius = matches[2]; // 두 번째 ~
+        typeName = matches[3]; // 세 번째 ~
+
+        console.log(locationName, radius, typeName);
+
+        location = await geocodeLocation(locationName);
+
+        type = typeMapping[typeName] || typeName;
+      } else {
+        // matches가 없는 경우, 기본값이나 오류 처리
+        return;
+      }
+
+      console.log(location, radius, type);
+
+      const placesData = await searchPlaces(location, radius, type);
+      if (placesData && placesData.results.length > 0) {
+        const places = placesData.results
+          .map((place) => {
+            return `📍 장소명: ${place.name}\n⭐ 평점: ${
+              place.rating || "평점 정보 없음"
+            }\n🏠 주소: ${place.vicinity}`;
+          })
+          .join("\n\n");
+
+        const responseMessage = {
+          text: `주변의 추천 장소들입니다:\n${places}`,
+          type: "bot",
+          time: new Date(),
+        };
+
+        addMessage(responseMessage);
+      } else {
+        const responseMessage = {
+          text: "검색된 장소가 없습니다.",
+          type: "bot",
+          time: new Date(),
+        };
+
+        addMessage(responseMessage);
+      }
+    }
+
     setInputText("");
   };
+
+  async function geocodeLocation(locationName) {
+    const apiKey = "AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8"; // Google Maps API 키
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      locationName
+    )}&key=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK") {
+        // 첫 번째 결과의 좌표를 반환
+        const location = data.results[0].geometry.location;
+        const lat = location.lat.toFixed(4); // 위도 소수점 네 자리
+        const lng = location.lng.toFixed(4); // 경도 소수점 네 자리
+        return `${lat},${lng}`;
+      } else {
+        throw new Error(data.status);
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+      return null;
+    }
+  }
 
   const addMessage = (message) => {
     setMessages((prevMessages) => [...prevMessages, message]);
@@ -111,7 +215,6 @@ function ChatApp(props) {
             <div key={index} className={`message ${message.type}`}>
               {message.type === "user" ? (
                 <div className="user-message">
-                  <img src={userImage} alt="User" className="user-image" />
                   <div className="message-text">{message.text}</div>
                 </div>
               ) : (
