@@ -76,31 +76,32 @@ function ChatApp(props) {
     };
     addMessage(newUserMessage);
 
-    try {
-      const response = await fetch("http://localhost:3001/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message }),
-      });
+    if (!message.includes("추천해줘")) {
+      // "추천해줘"가 포함되지 않은 경우에만 API 호출
+      try {
+        const response = await fetch("http://localhost:3001/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message }),
+        });
 
-      if (!response.ok) {
-        throw new Error("서버 응답이 실패했습니다.");
+        if (!response.ok) {
+          throw new Error("서버 응답이 실패했습니다.");
+        }
+
+        const data = await response.json();
+        const botResponseMessage = {
+          text: data.botResponse,
+          type: "bot",
+          time: new Date(),
+        };
+        addMessage(botResponseMessage);
+      } catch (error) {
+        console.error("오류 발생:", error);
       }
-
-      const data = await response.json();
-      const botResponseMessage = {
-        text: data.botResponse,
-        type: "bot",
-        time: new Date(),
-      };
-      addMessage(botResponseMessage);
-    } catch (error) {
-      console.error("오류 발생:", error);
-    }
-
-    if (message.includes("추천해줘")) {
+    } else {
       console.log("여기까지");
       const pattern = /(.+)에서 (.+)미터 내의 (.+) 추천해줘/;
       const matches = message.match(pattern);
@@ -123,13 +124,67 @@ function ChatApp(props) {
 
       console.log(location, radius, type);
 
+      const renderMessageText = (text) => {
+        const htmlText = text.split("\n").map((line, index) => {
+          // URL 형식을 감지하여 JSX 링크로 변환
+          if (line.includes('href="')) {
+            const parts = line
+              .split(/(<a href=".+?">.+?<\/a>)/)
+              .filter((part) => part);
+            return (
+              <React.Fragment key={index}>
+                {parts.map((part, partIndex) => {
+                  if (part.startsWith('<a href="')) {
+                    const urlMatch = part.match(/href="(.+?)"/);
+                    const textMatch = part.match(/">(.+?)<\/a>/);
+                    return urlMatch && textMatch ? (
+                      <a
+                        key={partIndex}
+                        href={urlMatch[1]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {textMatch[1]}
+                      </a>
+                    ) : (
+                      part
+                    );
+                  }
+                  return part;
+                })}
+                <br />
+              </React.Fragment>
+            );
+          }
+          return (
+            <React.Fragment key={index}>
+              {line}
+              <br />
+            </React.Fragment>
+          );
+        });
+        return <div>{htmlText}</div>;
+      };
+
+      const createPhotoUrl = (photoReference) => {
+        return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8`;
+      };
+
       const placesData = await searchPlaces(location, radius, type);
       if (placesData && placesData.results.length > 0) {
         const places = placesData.results
           .map((place) => {
+            const photoUrl =
+              place.photos && place.photos.length > 0
+                ? createPhotoUrl(place.photos[0].photo_reference)
+                : null;
             return `📍 장소명: ${place.name}\n⭐ 평점: ${
               place.rating || "평점 정보 없음"
-            }\n🏠 주소: ${place.vicinity}`;
+            }\n🏠 주소: ${place.vicinity}${
+              photoUrl
+                ? `\n📷 사진: <a href="${photoUrl}" target="_blank">보기</a>`
+                : ""
+            }`;
           })
           .join("\n\n");
 
@@ -139,7 +194,15 @@ function ChatApp(props) {
           time: new Date(),
         };
 
-        addMessage(responseMessage);
+        const renderedText = renderMessageText(responseMessage.text);
+
+        const renderedTextMessage = {
+          text: renderedText,
+          type: "bot",
+          time: new Date(),
+        };
+
+        addMessage(renderedTextMessage);
       } else {
         const responseMessage = {
           text: "검색된 장소가 없습니다.",
