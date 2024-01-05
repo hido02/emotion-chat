@@ -108,4 +108,80 @@ async function searchPlaces(req, res) {
   }
 }
 
-module.exports = { postChat, getChatHistory, searchPlaces };
+const { Translate } = require("@google-cloud/translate").v2;
+
+const translate = new Translate({
+  key: "AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8",
+}); // 여기에 실제 API 키를 입력하세요
+
+async function translateCityName(cityName) {
+  try {
+    let [translation] = await translate.translate(cityName, "en");
+    return translation;
+  } catch (error) {
+    console.error("도시 이름 번역 오류:", error);
+    return null;
+  }
+}
+
+function getWeatherIcon(description) {
+  console.log("날씨 상태:", description);
+  const weatherConditions = {
+    "clear sky": "☀️",
+    "few clouds": "🌤️",
+    "scattered clouds": "☁️",
+    "broken clouds": "☁️",
+    "shower rain": "🌧️",
+    rain: "🌦️",
+    thunderstorm: "⛈️",
+    snow: "❄️",
+    haze: "🌫️",
+
+    // 기타 날씨 상태와 이모티콘을 추가할 수 있습니다.
+  };
+
+  return weatherConditions[description.toLowerCase()] || "🌈";
+}
+
+async function getWeatherInfo(req, res) {
+  const { cityName, newUserMessage } = req.body;
+  const requestMessage = newUserMessage.text;
+  await chatService.saveMessage({
+    text: requestMessage,
+    time: new Date(),
+    type: "user",
+  });
+  const translatedCityName = await translateCityName(cityName);
+  console.log("번역된 도시 이름", translatedCityName);
+  const apiKey = "5d7bc6e85baff77927d8958def996fff"; // OpenWeatherMap에서 발급한 API 키
+
+  const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${translatedCityName}&appid=${apiKey}&units=metric`;
+
+  try {
+    const response = await axios.get(apiUrl);
+    const weatherData = response.data;
+
+    // 날씨 정보를 형식화된 문자열로 변환
+    const temperature = weatherData.main.temp;
+    const description = weatherData.weather[0].description;
+    const weatherIcon = getWeatherIcon(description);
+    const responseMessage = `🌆 현재 ${cityName}의 날씨 정보:\n
+      🌡️ 기온: ${temperature}°C\n
+      🌬️ 날씨 상태: ${weatherIcon} ${description}`;
+
+    // 데이터베이스에 날씨 정보 저장
+    await chatService.saveMessage({
+      text: responseMessage,
+      time: new Date(),
+      type: "bot",
+    });
+
+    // 클라이언트에게 응답 반환
+    res.json(weatherData);
+  } catch (error) {
+    console.error("날씨 정보 가져오기 오류:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+module.exports = { postChat, getChatHistory, searchPlaces, getWeatherInfo };

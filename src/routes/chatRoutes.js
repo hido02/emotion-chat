@@ -9,4 +9,6 @@ router.get("/api/chat-history", chatController.getChatHistory);
 
 router.post("/api/search-places", chatController.searchPlaces);
 
+router.post("/api/get-weather", chatController.getWeatherInfo);
+
 module.exports = router;

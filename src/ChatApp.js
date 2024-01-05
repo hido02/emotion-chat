@@ -39,6 +39,28 @@ function ChatApp(props) {
     }
   };
 
+  const getWeather = async (cityName, newUserMessage) => {
+    try {
+      const response = await fetch("http://localhost:3001/api/get-weather", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cityName, newUserMessage }),
+      });
+      if (!response.ok) {
+        throw new Error("날씨 정보를 가져오는데 실패했습니다.");
+      }
+
+      const weatherData = await response.json();
+      console.log("여기서 weatherData", weatherData);
+      return weatherData;
+    } catch (error) {
+      console.error("날씨 정보 가져오기 오류:", error);
+      return null;
+    }
+  };
+
   // 이전 대화 기록을 가져오기 위한 함수
   const fetchPreviousMessages = async () => {
     try {
@@ -86,7 +108,124 @@ function ChatApp(props) {
     };
     addMessage(newUserMessage);
 
-    if (!message.includes("추천해줘")) {
+    function sendBotMessage(message) {
+      const botResponseMessage = {
+        text: message,
+        type: "bot",
+        time: new Date(),
+      };
+      addMessage(botResponseMessage);
+    }
+
+    function getWeatherIcon(description) {
+      console.log("날씨 상태:", description);
+      const weatherConditions = {
+        "clear sky": "☀️",
+        "few clouds": "🌤️",
+        "scattered clouds": "☁️",
+        "broken clouds": "☁️",
+        "shower rain": "🌧️",
+        rain: "🌦️",
+        thunderstorm: "⛈️",
+        snow: "❄️",
+        haze: "🌫️",
+
+        // 기타 날씨 상태와 이모티콘을 추가할 수 있습니다.
+      };
+
+      return weatherConditions[description.toLowerCase()] || "🌈";
+    }
+
+    const renderMessageText = (text) => {
+      const htmlText = text.split("\n").map((line, index) => {
+        // URL 형식을 감지하여 JSX 링크로 변환
+        if (line.includes('href="')) {
+          const parts = line
+            .split(/(<a href=".+?">.+?<\/a>)/)
+            .filter((part) => part);
+          return (
+            <React.Fragment key={index}>
+              {parts.map((part, partIndex) => {
+                if (part.startsWith('<a href="')) {
+                  const urlMatch = part.match(/href="(.+?)"/);
+                  const textMatch = part.match(/">(.+?)<\/a>/);
+                  return urlMatch && textMatch ? (
+                    <a
+                      key={partIndex}
+                      href={urlMatch[1]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {textMatch[1]}
+                    </a>
+                  ) : (
+                    part
+                  );
+                }
+                return part;
+              })}
+              <br />
+            </React.Fragment>
+          );
+        }
+        return (
+          <React.Fragment key={index}>
+            {line}
+            <br />
+          </React.Fragment>
+        );
+      });
+      return <div>{htmlText}</div>;
+    };
+
+    if (message.includes("날씨")) {
+      const cityPattern = /(.+) 날씨 알려줘/; // "날씨 정보" 다음에 도시 이름이 오는 패턴
+      const matches = message.match(cityPattern);
+
+      if (matches && matches[1]) {
+        const cityName = matches[1];
+        const weatherData = await getWeather(cityName, newUserMessage);
+
+        console.log("weatherData", weatherData);
+
+        if (weatherData) {
+          const temperature = weatherData.main.temp;
+          const description = weatherData.weather[0].description;
+          const weatherIcon = getWeatherIcon(description);
+          const responseMessageLines = [
+            `🌆 현재 ${cityName}의 날씨 정보:`,
+            `🌡️ 기온: ${temperature}°C`,
+            `🌬️ 날씨 상태: ${weatherIcon} ${description}`,
+          ];
+
+          // 문자열 배열을 JSX 요소로 변환
+          const renderedText = (
+            <div>
+              {responseMessageLines.map((line, index) => (
+                <React.Fragment key={index}>
+                  {line}
+                  <br />
+                </React.Fragment>
+              ))}
+            </div>
+          );
+
+          // JSX 요소를 메시지 목록에 추가
+          const renderedTextMessage = {
+            text: renderedText,
+            type: "bot",
+            time: new Date(),
+          };
+
+          addMessage(renderedTextMessage);
+        } else {
+          // 날씨 정보를 가져오지 못한 경우 오류 메시지 전송
+          sendBotMessage("날씨 정보를 가져오는데 문제가 발생했습니다.");
+        }
+      }
+    }
+
+    if (!message.includes("추천해줘") && !message.includes("날씨")) {
       // "추천해줘"가 포함되지 않은 경우에만 API 호출
       try {
         const response = await fetch("http://localhost:3001/api/chat", {
@@ -133,48 +272,6 @@ function ChatApp(props) {
       }
 
       console.log(location, radius, type);
-
-      const renderMessageText = (text) => {
-        const htmlText = text.split("\n").map((line, index) => {
-          // URL 형식을 감지하여 JSX 링크로 변환
-          if (line.includes('href="')) {
-            const parts = line
-              .split(/(<a href=".+?">.+?<\/a>)/)
-              .filter((part) => part);
-            return (
-              <React.Fragment key={index}>
-                {parts.map((part, partIndex) => {
-                  if (part.startsWith('<a href="')) {
-                    const urlMatch = part.match(/href="(.+?)"/);
-                    const textMatch = part.match(/">(.+?)<\/a>/);
-                    return urlMatch && textMatch ? (
-                      <a
-                        key={partIndex}
-                        href={urlMatch[1]}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {textMatch[1]}
-                      </a>
-                    ) : (
-                      part
-                    );
-                  }
-                  return part;
-                })}
-                <br />
-              </React.Fragment>
-            );
-          }
-          return (
-            <React.Fragment key={index}>
-              {line}
-              <br />
-            </React.Fragment>
-          );
-        });
-        return <div>{htmlText}</div>;
-      };
 
       const createPhotoUrl = (photoReference) => {
         return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8`;
