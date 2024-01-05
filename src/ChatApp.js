@@ -17,14 +17,14 @@ function ChatApp(props) {
     }
   }, [messages]);
 
-  const searchPlaces = async (location, radius, type) => {
+  const searchPlaces = async (location, radius, type, newUserMessage) => {
     try {
       const response = await fetch("http://localhost:3001/api/search-places", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ location, radius, type }),
+        body: JSON.stringify({ location, radius, type, newUserMessage }),
       });
 
       if (!response.ok) {
@@ -47,7 +47,17 @@ function ChatApp(props) {
         throw new Error("이전 대화 기록을 불러오는데 실패했습니다.");
       }
       const data = await response.json();
-      setMessages(data.messages);
+
+      const renderMessageText = (text) => {
+        // HTML 태그를 그대로 렌더링하기 위해 dangerouslySetInnerHTML 사용
+        return <div dangerouslySetInnerHTML={{ __html: text }} />;
+      };
+      const renderMessages = data.messages.map((message) => ({
+        text: renderMessageText(message.text),
+        type: message.type,
+        time: new Date(message.time),
+      }));
+      setMessages(renderMessages);
     } catch (error) {
       console.error("이전 대화 기록을 가져오는데 오류 발생:", error);
     }
@@ -170,7 +180,14 @@ function ChatApp(props) {
         return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=AIzaSyCpST1G2yZzKFs6m-j2QAfXy2uoinbjf-8`;
       };
 
-      const placesData = await searchPlaces(location, radius, type);
+      console.log(newUserMessage);
+
+      const placesData = await searchPlaces(
+        location,
+        radius,
+        type,
+        newUserMessage
+      );
       if (placesData && placesData.results.length > 0) {
         const places = placesData.results
           .map((place) => {
